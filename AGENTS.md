@@ -28,3 +28,9 @@ use the editor.
   own key and store it in Secrets.
 - **Secrets.** Lovable manages them. Do not put secret values in the repo.
 <!-- LOVABLE:END -->
+
+## Project rules
+
+- Inspection logic lives in `src/lib/inspect/`: pure, testable analysis in `signals.ts` and `scoring.ts`; network lookups only in `inspect.server.ts`, exposed via `inspect.functions.ts`. Why: keeps scoring rules unit-testable without network.
+- Keep inspection lookups to at most six concurrent outbound requests per call. Why: the server runtime queues anything beyond six.
+- Reject private/local hosts (and redirects to them) before any server-side fetch. Why: user-supplied URLs are fetched by the server.
