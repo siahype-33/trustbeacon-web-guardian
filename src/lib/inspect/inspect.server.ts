@@ -8,7 +8,7 @@ import {
   parseHost,
   type CtIssuance,
 } from "./signals";
-import { computeTrust, scorePanel, verdictFor } from "./scoring";
+import { computeTrust, missingStrictHeaders, scorePanel, verdictFor } from "./scoring";
 import type { Check, Fact, InspectionReport, PanelKey, PanelResult } from "./types";
 
 const UA = "Mozilla/5.0 (compatible; NetVeritas/1.0; website trust inspector)";
@@ -32,6 +32,9 @@ async function fetchChain(start: URL, maxHops = 5): Promise<ChainResult> {
     });
     const location = res.headers.get("location");
     await res.body?.cancel().catch(() => undefined);
+    // Cloudflare's edge reports origin certificate failures as 525/526 instead of throwing.
+    if (res.status === 525) throw new Error("SSL handshake failed (HTTP 525)");
+    if (res.status === 526) throw new Error("Invalid SSL certificate (HTTP 526)");
     if (res.status >= 300 && res.status < 400 && location) {
       current = new URL(location, current);
       continue;
@@ -340,7 +343,13 @@ export async function runInspection(input: string): Promise<InspectionReport> {
     headers: build("headers", headerChecks, headerFacts),
     threat: build("threat", threatChecks, []),
   };
-  const { trust, caps } = computeTrust(panels);
+  const { trust, deductions } = computeTrust({
+    url,
+    tlsFailure: chain
+      ? null
+      : describeFetchError(httpsRes.status === "rejected" ? httpsRes.reason : null),
+    missingHeaders: missingStrictHeaders(chain?.response.headers ?? null),
+  });
 
   return {
     input,
@@ -351,7 +360,7 @@ export async function runInspection(input: string): Promise<InspectionReport> {
     inspectedAt: now.toISOString(),
     trust,
     verdict: verdictFor(trust),
-    caps,
+    deductions,
     panels,
   };
 }
