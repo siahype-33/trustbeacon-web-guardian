@@ -94,7 +94,7 @@ export function ThreatLog({ panel, inspectedAt }: { panel: PanelResult; inspecte
   const time = new Date(inspectedAt).toISOString().slice(11, 19);
   return (
     <div className="flex flex-1 flex-col">
-      <ol className="m-4 flex-1 space-y-px overflow-hidden rounded-md border border-border bg-inset font-mono text-xs">
+      <ol className="m-4 space-y-px overflow-hidden rounded-md border border-border bg-inset font-mono text-xs">
         {panel.checks.map((c) => (
           <li key={c.id} className="border-b border-border px-4 py-3 last:border-b-0">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -110,7 +110,7 @@ export function ThreatLog({ panel, inspectedAt }: { panel: PanelResult; inspecte
           </li>
         ))}
       </ol>
-      <p className="px-5 pb-4 text-xs text-muted-foreground">
+      <p className="mt-auto px-5 pb-4 text-xs text-muted-foreground">
         Live lookups against shared threat intelligence. A clean log means no source currently
         flags this host — not a guarantee of safety.
       </p>
