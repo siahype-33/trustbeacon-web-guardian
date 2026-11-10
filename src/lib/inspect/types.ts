@@ -27,6 +27,14 @@ export interface PanelResult {
 
 export type Verdict = "safe" | "caution" | "danger";
 
+export interface Deduction {
+  id: "http" | "tls" | "phishing" | "headers";
+  label: string;
+  points: number;
+  applied: boolean;
+  reason: string;
+}
+
 export interface InspectionReport {
   input: string;
   url: string;
@@ -36,6 +44,6 @@ export interface InspectionReport {
   inspectedAt: string;
   trust: number;
   verdict: Verdict;
-  caps: string[];
+  deductions: Deduction[];
   panels: Record<PanelKey, PanelResult>;
 }

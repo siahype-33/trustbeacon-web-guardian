@@ -1,4 +1,5 @@
 import { parse } from "tldts";
+import { phishingKeywordsIn } from "./scoring";
 import type { Check, Fact } from "./types";
 
 /* ---------- Target normalisation & safety ---------- */
@@ -70,22 +71,6 @@ export function parseHost(hostname: string) {
 
 /* ---------- URL & phishing signals ---------- */
 
-const LURE_WORDS = [
-  "login",
-  "signin",
-  "verify",
-  "verification",
-  "secure",
-  "account",
-  "update",
-  "confirm",
-  "wallet",
-  "banking",
-  "password",
-  "unlock",
-  "recover",
-  "suspended",
-];
 
 const BRANDS = [
   "paypal",
@@ -241,15 +226,15 @@ export function analyzeUrl(url: URL, opts: { explicitHttp: boolean }): Check[] {
         : "No well-known brand names appear outside their official domain.",
     });
 
-    const lures = LURE_WORDS.filter((w) => `${sub}.${label}`.includes(w));
+    const lures = phishingKeywordsIn(url);
     checks.push({
       id: "lure-words",
       label: "Urgency & credential lures",
       status: lures.length ? "warn" : "pass",
       weight: lures.length > 1 ? 20 : 10,
       detail: lures.length
-        ? `Hostname contains lure words often used in phishing: ${lures.join(", ")}.`
-        : "No credential or urgency lure words in the hostname.",
+        ? `Address contains words often used in phishing: ${lures.join(", ")}.`
+        : "No credential or urgency lure words in the address.",
     });
 
     const tld = (p.publicSuffix ?? "").split(".").pop() ?? "";

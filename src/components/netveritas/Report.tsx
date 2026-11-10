@@ -1,9 +1,9 @@
-import { FileLock2, Fingerprint, Radar, ShieldHalf, TriangleAlert } from "lucide-react";
+import { Check, FileLock2, Fingerprint, Radar, ShieldHalf, TriangleAlert } from "lucide-react";
 import type { InspectionReport, PanelKey } from "@/lib/inspect/types";
 import { cn } from "@/lib/utils";
 import { CheckList, FactTable, PanelShell, ThreatLog } from "./Panels";
 import { TrustGauge } from "./TrustGauge";
-import { toneBar, toneForScore, toneFromVerdict, toneText } from "./tone";
+import { toneFromVerdict, toneText } from "./tone";
 
 const PANEL_META: Record<PanelKey, { title: string; subtitle: string }> = {
   url: { title: "URL & Phishing Signals", subtitle: "Structure, impersonation and domain age" },
@@ -44,35 +44,34 @@ export function Report({ report }: { report: InspectionReport }) {
             {verdictSentence[report.verdict]}
           </p>
 
-          {report.caps.length > 0 && (
-            <ul className="mt-3 space-y-1">
-              {report.caps.map((c) => (
-                <li key={c} className="flex items-center gap-2 text-sm text-foreground">
-                  <TriangleAlert className="size-4 shrink-0 text-danger" />
-                  {c}
+          <div className="mt-5">
+            <div className="flex items-baseline justify-between font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+              <span>Score breakdown</span>
+              <span className="tabular">Starts at 100</span>
+            </div>
+            <ul className="mt-2 divide-y divide-border rounded-md border border-border">
+              {report.deductions.map((d) => (
+                <li key={d.id} className="flex items-start gap-3 px-3 py-2">
+                  {d.applied ? (
+                    <TriangleAlert className="mt-0.5 size-4 shrink-0 text-danger" />
+                  ) : (
+                    <Check className="mt-0.5 size-4 shrink-0 text-safe" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm text-foreground">{d.label}</div>
+                    <div className="break-words text-xs text-muted-foreground">{d.reason}</div>
+                  </div>
+                  <span
+                    className={cn(
+                      "tabular shrink-0 font-mono text-sm",
+                      d.applied ? "text-danger" : "text-muted-foreground",
+                    )}
+                  >
+                    {d.applied ? `−${d.points}` : "0"}
+                  </span>
                 </li>
               ))}
             </ul>
-          )}
-
-          <div className="mt-5 grid gap-x-8 gap-y-2.5 sm:grid-cols-2">
-            {ORDER.map((key) => {
-              const s = panels[key].score;
-              return (
-                <div key={key}>
-                  <div className="flex items-baseline justify-between text-xs">
-                    <span className="text-muted-foreground">{PANEL_META[key].title}</span>
-                    <span className="tabular font-mono text-foreground">{s}</span>
-                  </div>
-                  <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className={cn("h-full rounded-full transition-[width] duration-700", toneBar[toneForScore(s)])}
-                      style={{ width: `${s}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
           </div>
         </div>
       </section>
