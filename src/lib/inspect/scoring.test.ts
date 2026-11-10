@@ -1,40 +1,64 @@
 import { describe, expect, it } from "vitest";
-import { computeTrust, scorePanel, verdictFor } from "./scoring";
+import { computeTrust, missingStrictHeaders, verdictFor } from "./scoring";
 import { domainAgeCheck, isBlockedHost, normalizeTarget, analyzeUrl } from "./signals";
-import type { Check, PanelKey } from "./types";
 
-const pass = (id: string, weight = 20): Check => ({ id, label: id, status: "pass", weight, detail: "" });
-const fail = (id: string, weight = 20): Check => ({ id, label: id, status: "fail", weight, detail: "" });
+const strictHeaders = new Headers({
+  "strict-transport-security": "max-age=31536000",
+  "content-security-policy": "default-src 'self'",
+  "x-frame-options": "DENY",
+  "x-content-type-options": "nosniff",
+});
 
-function panels(overrides: Partial<Record<PanelKey, Check[]>> = {}) {
-  const keys: PanelKey[] = ["url", "tls", "headers", "threat"];
-  return Object.fromEntries(
-    keys.map((k) => {
-      const checks = overrides[k] ?? [pass(`${k}-ok`)];
-      return [k, { score: scorePanel(checks), checks }];
-    }),
-  ) as Record<PanelKey, { score: number; checks: Check[] }>;
+function score(input: string, opts: { tlsFailure?: string | null; headers?: Headers | null } = {}) {
+  const { url } = normalizeTarget(input);
+  return computeTrust({
+    url,
+    tlsFailure: opts.tlsFailure ?? null,
+    missingHeaders: missingStrictHeaders(opts.headers === undefined ? strictHeaders : opts.headers),
+  }).trust;
 }
 
 describe("trust rating", () => {
-  it("is 100 when every panel passes", () => {
-    expect(computeTrust(panels()).trust).toBe(100);
+  it("is 100 for a clean https site with strict headers", () => {
+    expect(score("github.com")).toBe(100);
   });
 
-  it("warnings cost half the check weight", () => {
-    expect(scorePanel([{ ...pass("x", 20), status: "warn" }])).toBe(90);
+  it("deducts 35 for an unencrypted http:// link", () => {
+    expect(score("http://github.com")).toBe(65);
   });
 
-  it("is capped at 20 when a threat source flags the host", () => {
-    expect(computeTrust(panels({ threat: [fail("cloudflare-dns", 1)] })).trust).toBe(20);
+  it("deducts 40 when TLS validation fails", () => {
+    expect(score("github.com", { tlsFailure: "The certificate was rejected." })).toBe(60);
   });
 
-  it("is capped at 40 when the HTTPS handshake fails", () => {
-    expect(computeTrust(panels({ tls: [fail("https-handshake", 1)] })).trust).toBe(40);
+  it.each(["expired.badssl.com", "self-signed.badssl.com", "untrusted-root.badssl.com", "wrong.host.badssl.com"])(
+    "deducts 40 for certificate-failure hostname %s",
+    (host) => {
+      expect(score(host)).toBe(60);
+    },
+  );
+
+  it.each(["login", "verify", "update", "kyc", "secure"])("deducts 15 for the keyword %s", (word) => {
+    expect(score(`example.org/${word}`)).toBe(85);
   });
 
-  it("is capped at 60 for domains registered under 30 days ago", () => {
-    expect(computeTrust(panels({ url: [fail("domain-age", 1)] })).trust).toBe(60);
+  it("deducts 10 when a strict security header is missing", () => {
+    const h = new Headers(strictHeaders);
+    h.delete("content-security-policy");
+    expect(score("github.com", { headers: h })).toBe(90);
+  });
+
+  it("deducts 10 when no response was received", () => {
+    expect(score("github.com", { headers: null })).toBe(90);
+  });
+
+  it("stacks all four deductions to 0", () => {
+    expect(score("http://expired.secure-login.com", { headers: null })).toBe(0);
+  });
+
+  it("gives the same score for the same URL every time", () => {
+    const runs = Array.from({ length: 50 }, () => score("http://kyc-update.example.com"));
+    expect(new Set(runs)).toEqual(new Set([50]));
   });
 
   it("maps 75+ to safe, 50–74 to caution, below 50 to danger", () => {

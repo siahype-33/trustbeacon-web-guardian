@@ -56,7 +56,6 @@ export function phishingKeywordsIn(url: URL): string[] {
   } catch {
     /* keep raw text */
   }
-  // "verification" already implies "verify"-style intent; report each word once.
   return PHISHING_KEYWORDS.filter((w) => text.includes(w));
 }
 

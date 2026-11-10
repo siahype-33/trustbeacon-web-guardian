@@ -8,7 +8,13 @@ import {
   parseHost,
   type CtIssuance,
 } from "./signals";
-import { computeTrust, missingStrictHeaders, scorePanel, verdictFor } from "./scoring";
+import {
+  computeTrust,
+  missingStrictHeaders,
+  scorePanel,
+  tlsMarkersIn,
+  verdictFor,
+} from "./scoring";
 import type { Check, Fact, InspectionReport, PanelKey, PanelResult } from "./types";
 
 const UA = "Mozilla/5.0 (compatible; NetVeritas/1.0; website trust inspector)";
@@ -207,6 +213,16 @@ export async function runInspection(input: string): Promise<InspectionReport> {
           detail: describeFetchError(httpsRes.status === "rejected" ? httpsRes.reason : null),
         },
   ];
+  const markers = tlsMarkersIn(host);
+  if (markers.length) {
+    tlsChecks.push({
+      id: "tls-marker",
+      label: "Certificate-failure hostname",
+      status: "fail",
+      weight: 40,
+      detail: `The hostname contains ${markers.map((m) => `“${m}”`).join(", ")}, which marks a site serving an invalid certificate.`,
+    });
+  }
   if (httpRes.status === "fulfilled") {
     const loc = httpRes.value.location ?? "";
     const upgrades = /^https:\/\//i.test(loc);
