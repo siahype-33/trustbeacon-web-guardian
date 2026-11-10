@@ -1,5 +1,6 @@
 import { parse } from "tldts";
 import { phishingKeywordsIn } from "./scoring";
+import { cleanUrlInput } from "./target";
 import type { Check, Fact } from "./types";
 
 /* ---------- Target normalisation & safety ---------- */
@@ -49,13 +50,15 @@ export function isBlockedHost(host: string): boolean {
 export function normalizeTarget(raw: string): { url: URL; explicitHttp: boolean } {
   const input = raw.trim();
   if (!input) throw new InspectionInputError("Enter a website address to inspect.");
-  const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(input) ? input : `https://${input}`;
-  let url: URL;
-  try {
-    url = new URL(withScheme);
-  } catch {
-    throw new InspectionInputError("That doesn't look like a valid website address.");
+  const cleaned = cleanUrlInput(input);
+  if (!cleaned.ok) {
+    // Single-label names like "localhost" get the clearer private-address message.
+    if (/^(https?:\/\/)?[^./:\s]+(:\d+)?\/?$/i.test(input)) {
+      throw new InspectionInputError("Private, local or incomplete addresses can't be inspected.");
+    }
+    throw new InspectionInputError(cleaned.message);
   }
+  const url = new URL(cleaned.url);
   if (url.protocol !== "http:" && url.protocol !== "https:") {
     throw new InspectionInputError("Only http:// and https:// addresses can be inspected.");
   }
