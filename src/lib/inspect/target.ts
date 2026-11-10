@@ -18,7 +18,7 @@ function isValidHost(host: string): boolean {
   if (IPV4.test(host)) return true;
   const labels = host.replace(/\.$/, "").split(".");
   if (labels.length < 2) return false;
-  return labels.every((l) => LABEL.test(l)) && TLD.test(labels[labels.length - 1]);
+  return labels.every((l) => LABEL.test(l)) && TLD.test(labels[labels.length - 1] ?? "");
 }
 
 export function cleanUrlInput(raw: string): CleanedTarget {
@@ -30,7 +30,9 @@ export function cleanUrlInput(raw: string): CleanedTarget {
 
   const typo = input.match(SCHEME_TYPO);
   if (typo) {
-    const [prefix, , s, sep] = typo;
+    const prefix = typo[0];
+    const s = typo[2] ?? "";
+    const sep = typo[3] ?? "";
     // Only treat it as a scheme when a colon or slash follows (so "http.cat" stays a domain).
     if (/[:\/\\]/.test(sep)) {
       const fixed = s ? "https://" : "http://";
